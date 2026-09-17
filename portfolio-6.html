@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>포트폴리오 원장</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --paper:#F6F1E5;
+    --paper-dim:#EFE8D8;
+    --ink:#1C2A3A;
+    --ink-soft:#5E6B78;
+    --line:#D8CDB4;
+    --stamp:#7A2331;
+    --stamp-soft:#F0DEDD;
+    --up:#B23A2E;
+    --down:#2A5788;
+    --shadow: 0 1px 0 rgba(28,42,58,0.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Pretendard', -apple-system, sans-serif;
+    line-height:1.5;
+    padding:0 0 4rem 0;
+  }
+  .wrap{max-width:840px;margin:0 auto;padding:0 1.25rem;}
+
+  /* ---- Header / passbook cover ---- */
+  header.cover{
+    background:var(--ink);
+    color:var(--paper);
+    padding:2.2rem 1.25rem 1.6rem;
+    position:relative;
+  }
+  header.cover .inner{max-width:840px;margin:0 auto;}
+  .cover-title{
+    font-family:'Noto Serif KR', serif;
+    font-weight:700;
+    font-size:1.5rem;
+    letter-spacing:0.02em;
+    margin:0 0 0.15rem;
+  }
+  .cover-sub{
+    font-size:0.82rem;
+    color:#B9C2CC;
+    margin:0 0 1.6rem;
+  }
+  .balance-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:1rem;
+  }
+  .balance-label{font-size:0.78rem;color:#9DA9B5;margin-bottom:0.35rem;}
+  .balance-value{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:2.1rem;
+    letter-spacing:-0.01em;
+  }
+  .balance-value .unit{font-size:1.05rem;color:#9DA9B5;margin-left:0.25rem;}
+  .balance-return{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:1rem;
+    font-weight:600;
+    text-align:right;
+  }
+  .balance-return .cap{display:block;font-family:'Pretendard';font-weight:400;font-size:0.75rem;color:#9DA9B5;margin-bottom:0.2rem;text-align:right;}
+  .pos{color:#E58880;}
+  .neg{color:#8FB4DE;}
+
+  /* ---- Sections ---- */
+  section{margin-top:2rem;}
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    border-bottom:1px solid var(--ink);
+    padding-bottom:0.5rem;
+    margin-bottom:1rem;
+  }
+  .section-title{
+    font-family:'Noto Serif KR', serif;
+    font-weight:700;
+    font-size:1.05rem;
+  }
+  .section-note{font-size:0.75rem;color:var(--ink-soft);}
+
+  /* ---- Add holding form ---- */
+  .entry-form{
+    display:grid;
+    grid-template-columns:1.3fr 1fr 0.9fr auto;
+    gap:0.6rem;
+    background:var(--paper-dim);
+    border:1px solid var(--line);
+    padding:0.9rem;
+  }
+  .entry-form label{
+    display:block;
+    font-size:0.68rem;
+    color:var(--ink-soft);
+    margin-bottom:0.3rem;
+  }
+  .entry-form input{
+    width:100%;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.9rem;
+    padding:0.5rem 0.55rem;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+  }
+  .entry-form input:focus{outline:2px solid var(--stamp);outline-offset:-1px;}
+  .btn{
+    font-family:'Pretendard';
+    font-weight:600;
+    font-size:0.85rem;
+    border:1px solid var(--ink);
+    background:var(--ink);
+    color:var(--paper);
+    padding:0.55rem 1rem;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .btn:hover{background:#0f1822;}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink-soft);}
+  .btn.ghost:hover{border-color:var(--ink);}
+  .btn.small{padding:0.3rem 0.6rem;font-size:0.72rem;}
+  .btn:disabled{opacity:0.5;cursor:default;}
+  .hint{font-size:0.72rem;color:var(--ink-soft);margin-top:0.5rem;}
+
+  /* ---- Holdings ledger ---- */
+  .ledger{width:100%;border-collapse:collapse;}
+  .ledger thead th{
+    text-align:left;
+    font-size:0.72rem;
+    font-weight:600;
+    color:var(--ink-soft);
+    padding:0 0.4rem 0.5rem;
+    border-bottom:1px solid var(--line);
+  }
+  .ledger tbody tr{border-bottom:1px solid var(--line);}
+  .ledger tbody td{
+    padding:0.7rem 0.4rem;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.86rem;
+    vertical-align:middle;
+  }
+  .ledger .ticker-cell .name{font-family:'Pretendard';font-weight:600;font-size:0.9rem;}
+  .ledger .ticker-cell .sym{font-size:0.72rem;color:var(--ink-soft);}
+  .num{text-align:right;font-variant-numeric:tabular-nums;}
+  .status-pending{color:var(--ink-soft);font-size:0.75rem;}
+  .status-error{color:var(--up);font-size:0.75rem;}
+  .row-actions{display:flex;gap:0.35rem;justify-content:flex-end;flex-wrap:wrap;}
+  .empty-row td{
+    text-align:center;
+    color:var(--ink-soft);
+    font-family:'Pretendard';
+    padding:1.6rem 0;
+    font-size:0.85rem;
+  }
+
+  /* mobile: stack ledger as cards */
+  @media (max-width:640px){
+    .entry-form{grid-template-columns:1fr 1fr;}
+    .entry-form .add-btn-cell{grid-column:1 / -1;}
+    .ledger thead{display:none;}
+    .ledger, .ledger tbody, .ledger tr, .ledger td{display:block;width:100%;}
+    .ledger tbody tr{padding:0.8rem 0.2rem;}
+    .ledger tbody td{padding:0.15rem 0.2rem;text-align:left !important;}
+    .ledger tbody td.num{display:flex;justify-content:space-between;}
+    .ledger tbody td.num::before{content:attr(data-label);color:var(--ink-soft);font-family:'Pretendard';font-size:0.72rem;}
+    .row-actions{justify-content:flex-start;margin-top:0.4rem;}
+  }
+
+  /* ---- Compound calculator ---- */
+  .calc-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr auto;
+    gap:0.6rem;
+    align-items:end;
+  }
+  @media (max-width:640px){ .calc-grid{grid-template-columns:1fr 1fr;} }
+  .calc-grid label{display:block;font-size:0.68rem;color:var(--ink-soft);margin-bottom:0.3rem;}
+  .calc-grid input{
+    width:100%;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.9rem;
+    padding:0.5rem 0.55rem;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+  }
+  .calc-result{
+    margin-top:1.3rem;
+    background:var(--ink);
+    color:var(--paper);
+    padding:1.2rem;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:0.8rem;
+  }
+  .calc-result .label{font-size:0.78rem;color:#9DA9B5;}
+  .calc-result .value{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:1.6rem;
+  }
+  .calc-result .value .unit{font-size:0.9rem;color:#9DA9B5;margin-left:0.2rem;}
+  .calc-result .gain{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.95rem;
+    color:#E58880;
+    text-align:right;
+  }
+  .chart-box{margin-top:1.2rem;background:#fff;border:1px solid var(--line);padding:1rem;}
+
+  footer{
+    max-width:840px;margin:2.5rem auto 0;padding:0 1.25rem;
+    font-size:0.72rem;color:var(--ink-soft);
+  }
+  a{color:var(--stamp);}
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="inner">
+    <p class="cover-title">포트폴리오 원장</p>
+    <p class="cover-sub">보유 종목의 실시간 시세와 총자산을 기록합니다</p>
+    <div class="balance-row">
+      <div>
+        <div class="balance-label">총 평가자산</div>
+        <div class="balance-value" id="totalValue">0<span class="unit">원</span></div>
+      </div>
+      <div>
+        <div class="balance-return"><span class="cap">평가손익</span><span id="totalReturn">0.00%</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section id="addSection">
+    <div class="section-head">
+      <span class="section-title">종목 등록</span>
+      <span class="section-note" id="lastUpdatedNote">아직 조회 안 됨</span>
+    </div>
+    <div class="entry-form">
+      <div>
+        <label for="inTicker">티커</label>
+        <input id="inTicker" type="text" placeholder="예: AAPL, 005930.KS">
+      </div>
+      <div>
+        <label for="inAvgPrice">평단가</label>
+        <div style="display:flex;gap:0.35rem;">
+          <input id="inAvgPrice" type="number" step="any" placeholder="예: 72000" style="flex:1;min-width:0;">
+          <select id="inAvgCurrency" style="width:4.4rem;font-family:'IBM Plex Mono', monospace;font-size:0.85rem;border:1px solid var(--line);background:#fff;color:var(--ink);">
+            <option value="KRW">원</option>
+            <option value="USD">$</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label for="inQty">수량</label>
+        <input id="inQty" type="number" step="any" placeholder="예: 10">
+      </div>
+      <div class="add-btn-cell" style="display:flex;align-items:flex-end;">
+        <button class="btn" id="addBtn" style="width:100%;">추가</button>
+      </div>
+    </div>
+    <p class="hint">코스피 종목은 티커 뒤에 <b>.KS</b>, 코스닥은 <b>.KQ</b>를 붙여주세요 (예: 삼성전자 → 005930.KS, 카카오 → 035720.KS). 미국 종목은 티커만 입력하면 됩니다 (예: AAPL, QQQ, TSLA). 평단가는 원화 또는 달러 중 실제로 매수한 통화를 선택하세요 — 총 자산은 항상 원화로 환산되어 표시됩니다.</p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="section-title">보유 종목</span>
+      <button class="btn ghost small" id="refreshBtn">전체 새로고침</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="ledger" id="ledgerTable">
+        <thead>
+          <tr>
+            <th>종목</th>
+            <th style="text-align:right;">평단가</th>
+            <th style="text-align:right;">수량</th>
+            <th style="text-align:right;">현재가</th>
+            <th style="text-align:right;">수익률</th>
+            <th style="text-align:right;">평가금액</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="ledgerBody">
+          <tr class="empty-row"><td colspan="7">등록된 종목이 없습니다. 위에서 종목을 추가해 주세요.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="section-title">미래 자산 계산기</span>
+      <span class="section-note">총 평가자산 기준 복리 계산</span>
+    </div>
+    <div class="calc-grid">
+      <div>
+        <label for="calcPrincipal">원금(원)</label>
+        <input id="calcPrincipal" type="number" step="any" value="0">
+      </div>
+      <div>
+        <label for="calcYears">투자 기간(년)</label>
+        <input id="calcYears" type="number" step="1" value="10">
+      </div>
+      <div>
+        <label for="calcRate">연 복리 수익률(%)</label>
+        <input id="calcRate" type="number" step="any" value="8">
+      </div>
+      <div>
+        <button class="btn" id="calcBtn" style="width:100%;">계산</button>
+      </div>
+    </div>
+    <div class="calc-result">
+      <div>
+        <div class="label">예상 미래 자산</div>
+        <div class="value" id="calcResultValue">0<span class="unit">원</span></div>
+      </div>
+      <div class="gain" id="calcResultGain">원금 대비 +0원 (+0.00%)</div>
+    </div>
+    <div class="chart-box">
+      <canvas id="growthChart" height="180"></canvas>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  현재가는 조회 시점 기준 실시간 시세이며, 지연 시세일 수 있습니다. 개인 참고용 도구이며 투자 판단의 근거로 사용하지 마세요.
+</footer>
+
+<script>
+const STORAGE_KEY = 'portfolio_ledger_holdings_v1';
+let holdings = [];
+let usdKrwRate = null;
+let growthChart = null;
+let editingIdx = null;
+
+function loadHoldings(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    holdings = raw ? JSON.parse(raw) : [];
+  }catch(e){ holdings = []; }
+}
+function saveHoldings(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(holdings));
+}
+
+function fmtInt(n){
+  if(n===null||n===undefined||isNaN(n)) return '-';
+  return Math.round(n).toLocaleString('ko-KR');
+}
+function fmtPrice(n, currency){
+  if(n===null||n===undefined||isNaN(n)) return '-';
+  if(currency==='USD') return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  return n.toLocaleString('ko-KR', {maximumFractionDigits:2}) + (currency==='KRW' ? '원' : '');
+}
+function fmtPct(n){
+  if(n===null||n===undefined||isNaN(n)) return '-';
+  const s = n>=0 ? '+' : '';
+  return s + n.toFixed(2) + '%';
+}
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchJson(symbol){
+  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d&includePrePost=true&_=${Date.now()}`;
+  const attempts = [
+    target,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}&_=${Date.now()}`,
+    `https://corsproxy.io/?url=${encodeURIComponent(target)}&_=${Date.now()}`,
+    `https://thingproxy.freeboard.io/fetch/${target}`
+  ];
+  let lastErr = null;
+  for(const url of attempts){
+    try{
+      const res = await fetchWithTimeout(url, 7000);
+      if(!res.ok){ lastErr = new Error('HTTP '+res.status); continue; }
+      const data = await res.json();
+      const result = data && data.chart && data.chart.result && data.chart.result[0];
+      if(!result || !result.meta) { lastErr = new Error('no data'); continue; }
+      return result; // meta + timestamp + indicators 전체를 반환
+    }catch(e){ lastErr = e; continue; }
+  }
+  throw lastErr || new Error('조회 실패');
+}
+
+async function fetchQuote(symbol){
+  const result = await fetchJson(symbol);
+  const meta = result.meta;
+  const timestamps = result.timestamp || [];
+  const closes = (result.indicators && result.indicators.quote && result.indicators.quote[0] && result.indicators.quote[0].close) || [];
+
+  // 1) 분봉(1분 간격) 데이터 중 실제로 체결된 마지막 값을 "지금 시점" 가격으로 사용
+  //    (야후 meta 필드는 시간외/장전가를 따로 안 주는 경우가 많아, 실제 체결 캔들에서 직접 뽑는다)
+  let price = null;
+  let time = 0;
+  for(let i = closes.length - 1; i >= 0; i--){
+    if(closes[i] != null){ price = closes[i]; time = timestamps[i] || 0; break; }
+  }
+  // 2) 분봉을 못 가져온 경우에만 meta의 정규장 가격으로 폴백
+  if(price == null){
+    price = meta.regularMarketPrice;
+    time = meta.regularMarketTime || 0;
+  }
+  if(price == null) throw new Error('가격 없음');
+
+  // 3) 현재 거래 세션 구간(pre/regular/post)과 비교해 라벨 결정
+  let label = null;
+  const ctp = meta.currentTradingPeriod;
+  if(ctp){
+    if(ctp.post && time >= ctp.post.start && time < ctp.post.end) label = '시간외';
+    else if(ctp.pre && time >= ctp.pre.start && time < ctp.pre.end) label = '장전';
+    else if(ctp.regular && time > ctp.regular.end) label = '시간외';
+    else if(ctp.regular && time < ctp.regular.start) label = '장전';
+  }
+
+  const currency = meta.currency || 'USD';
+  return { price, currency, priceLabel: label, priceTime: time };
+}
+
+async function ensureExchangeRate(){
+  try{
+    const result = await fetchJson('KRW=X');
+    if(result.meta.regularMarketPrice) usdKrwRate = result.meta.regularMarketPrice;
+  }catch(e){
+    if(!usdKrwRate) usdKrwRate = 1400; // 폴백 근사치
+  }
+}
+
+function toKRW(amount, currency){
+  if(currency === 'KRW') return amount;
+  if(currency === 'USD') return amount * (usdKrwRate || 1400);
+  return amount; // 기타 통화는 그대로(근사)
+}
+
+function renderLedger(){
+  const tbody = document.getElementById('ledgerBody');
+  tbody.innerHTML = '';
+  if(holdings.length === 0){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">등록된 종목이 없습니다. 위에서 종목을 추가해 주세요.</td></tr>';
+  }
+  let totalValueKRW = 0;
+  let totalCostKRW = 0;
+
+  holdings.forEach((h, idx) => {
+    const tr = document.createElement('tr');
+    const avgCurrency = h.avgPriceCurrency || 'KRW';
+    const valueNative = (h.currentPrice !== null && h.currentPrice !== undefined) ? h.currentPrice * h.qty : null;
+    const valueKRW = valueNative !== null ? toKRW(valueNative, h.currency || 'KRW') : null;
+    const costKRW = toKRW(h.avgPrice * h.qty, avgCurrency);
+    // 평단가와 현재가 통화가 다를 수 있으므로 원화 환산 기준으로 수익률 계산
+    const returnPct = (valueKRW !== null && costKRW > 0)
+      ? ((valueKRW - costKRW) / costKRW) * 100
+      : null;
+
+    if(valueKRW !== null){ totalValueKRW += valueKRW; totalCostKRW += costKRW; }
+
+    let priceCell, returnCell, valueCell;
+    const hasPrice = h.currentPrice !== null && h.currentPrice !== undefined;
+
+    if(!hasPrice && h.status === 'loading'){
+      priceCell = '<span class="status-pending">조회중…</span>';
+      returnCell = '<span class="status-pending">-</span>';
+      valueCell = '<span class="status-pending">-</span>';
+    } else if(!hasPrice && h.status === 'error'){
+      priceCell = '<span class="status-error">조회 실패</span>';
+      returnCell = '<span class="status-error">-</span>';
+      valueCell = '<span class="status-error">-</span>';
+    } else {
+      let badge = '';
+      if(h.priceLabel){
+        badge += ` <span style="font-size:0.68rem;color:var(--ink-soft);">(${h.priceLabel})</span>`;
+      }
+      if(h.status === 'stale' && h.lastSuccessTime){
+        const ageMin = Math.max(0, Math.round((Date.now() - h.lastSuccessTime) / 60000));
+        const ageText = ageMin < 1 ? '방금' : (ageMin < 60 ? `${ageMin}분 전` : `${Math.round(ageMin/60)}시간 전`);
+        badge += ` <span style="font-size:0.68rem;color:var(--down);">(${ageText} 가격)</span>`;
+      } else if(h.status === 'loading'){
+        badge += ' <span class="status-pending">(갱신 중…)</span>';
+      }
+      priceCell = fmtPrice(h.currentPrice, h.currency) + badge;
+      returnCell = `<span style="color:${returnPct>=0?'var(--up)':'var(--down)'};font-weight:600;">${fmtPct(returnPct)}</span>`;
+      valueCell = fmtInt(valueKRW) + '원';
+    }
+
+    const isEditing = (idx === editingIdx);
+    let avgPriceCell, qtyCell, actionsCell;
+
+    if(isEditing){
+      avgPriceCell = `
+        <div style="display:flex;gap:0.25rem;justify-content:flex-end;">
+          <input type="number" step="any" id="editAvgPrice-${idx}" value="${h.avgPrice}"
+            style="width:5.2rem;font-family:'IBM Plex Mono',monospace;font-size:0.85rem;padding:0.3rem;border:1px solid var(--ink-soft);text-align:right;">
+          <select id="editAvgCurrency-${idx}" style="font-family:'IBM Plex Mono',monospace;font-size:0.8rem;border:1px solid var(--ink-soft);">
+            <option value="KRW" ${avgCurrency==='KRW'?'selected':''}>원</option>
+            <option value="USD" ${avgCurrency==='USD'?'selected':''}>$</option>
+          </select>
+        </div>`;
+      qtyCell = `<input type="number" step="any" id="editQty-${idx}" value="${h.qty}"
+        style="width:4.2rem;font-family:'IBM Plex Mono',monospace;font-size:0.85rem;padding:0.3rem;border:1px solid var(--ink-soft);text-align:right;">`;
+      actionsCell = `
+        <div class="row-actions">
+          <button class="btn small" data-action="save" data-idx="${idx}">저장</button>
+          <button class="btn ghost small" data-action="cancel" data-idx="${idx}">취소</button>
+        </div>`;
+    } else {
+      avgPriceCell = fmtPrice(h.avgPrice, avgCurrency);
+      qtyCell = h.qty;
+      actionsCell = `
+        <div class="row-actions">
+          <button class="btn ghost small" data-action="edit" data-idx="${idx}">수정</button>
+          <button class="btn ghost small" data-action="refresh" data-idx="${idx}">새로고침</button>
+          <button class="btn ghost small" data-action="delete" data-idx="${idx}">삭제</button>
+        </div>`;
+    }
+
+    tr.innerHTML = `
+      <td class="ticker-cell">
+        <div class="name">${h.ticker}</div>
+      </td>
+      <td class="num" data-label="평단가">${avgPriceCell}</td>
+      <td class="num" data-label="수량">${qtyCell}</td>
+      <td class="num" data-label="현재가">${priceCell}</td>
+      <td class="num" data-label="수익률">${returnCell}</td>
+      <td class="num" data-label="평가금액">${valueCell}</td>
+      <td>
+        ${actionsCell}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('totalValue').innerHTML = fmtInt(totalValueKRW) + '<span class="unit">원</span>';
+  const totalReturnPct = totalCostKRW > 0 ? ((totalValueKRW - totalCostKRW) / totalCostKRW) * 100 : 0;
+  const retEl = document.getElementById('totalReturn');
+  retEl.textContent = fmtPct(totalReturnPct) + `  (${totalValueKRW>=totalCostKRW?'+':''}${fmtInt(totalValueKRW-totalCostKRW)}원)`;
+  retEl.className = totalReturnPct >= 0 ? 'pos' : 'neg';
+
+  // 계산기 원금 자동 반영 (사용자가 직접 수정한 적 없다면)
+  const principalInput = document.getElementById('calcPrincipal');
+  if(!principalInput.dataset.userEdited){
+    principalInput.value = Math.round(totalValueKRW);
+  }
+}
+
+async function refreshHolding(idx){
+  const h = holdings[idx];
+  const hadPrice = h.currentPrice !== null && h.currentPrice !== undefined;
+  h.status = 'loading';
+  renderLedger();
+  try{
+    const q = await fetchQuote(h.ticker);
+    h.currentPrice = q.price;
+    h.currency = q.currency;
+    h.priceLabel = q.priceLabel;
+    h.status = 'ok';
+    h.lastSuccessTime = Date.now();
+    h.updatedAt = new Date().toISOString();
+  }catch(e){
+    // 조회 실패해도 이전에 성공적으로 가져온 가격이 있으면 그대로 보여준다 ('N분 전 가격')
+    h.status = hadPrice ? 'stale' : 'error';
+  }
+  saveHoldings();
+  renderLedger();
+  updateLastUpdatedNote();
+}
+
+async function refreshAll(){
+  if(holdings.length === 0) return;
+  document.getElementById('refreshBtn').disabled = true;
+  await ensureExchangeRate();
+  for(let i=0;i<holdings.length;i++){
+    await refreshHolding(i);
+  }
+  document.getElementById('refreshBtn').disabled = false;
+}
+
+function updateLastUpdatedNote(){
+  const note = document.getElementById('lastUpdatedNote');
+  const now = new Date();
+  note.textContent = '마지막 조회 ' + now.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+}
+
+document.getElementById('addBtn').addEventListener('click', async () => {
+  const ticker = document.getElementById('inTicker').value.trim();
+  const avgPrice = parseFloat(document.getElementById('inAvgPrice').value);
+  const qty = parseFloat(document.getElementById('inQty').value);
+  if(!ticker || isNaN(avgPrice) || isNaN(qty)){
+    alert('티커, 평단가, 수량을 모두 입력해 주세요.');
+    return;
+  }
+  const avgPriceCurrency = document.getElementById('inAvgCurrency').value;
+  const holding = { ticker, avgPrice, avgPriceCurrency, qty, currentPrice:null, currency:'KRW', status:'loading' };
+  holdings.push(holding);
+  saveHoldings();
+  renderLedger();
+  document.getElementById('inTicker').value = '';
+  document.getElementById('inAvgPrice').value = '';
+  document.getElementById('inQty').value = '';
+  delete document.getElementById('inAvgCurrency').dataset.userChanged;
+
+  await ensureExchangeRate();
+  await refreshHolding(holdings.length - 1);
+});
+
+document.getElementById('inAvgCurrency').addEventListener('change', (e) => {
+  e.target.dataset.userChanged = '1';
+});
+document.getElementById('inTicker').addEventListener('blur', () => {
+  const sel = document.getElementById('inAvgCurrency');
+  if(sel.dataset.userChanged) return;
+  const t = document.getElementById('inTicker').value.trim().toUpperCase();
+  if(!t) return;
+  sel.value = (t.endsWith('.KS') || t.endsWith('.KQ')) ? 'KRW' : 'USD';
+});
+
+document.getElementById('ledgerBody').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if(!btn) return;
+  const idx = parseInt(btn.dataset.idx, 10);
+  if(btn.dataset.action === 'delete'){
+    holdings.splice(idx, 1);
+    if(editingIdx === idx) editingIdx = null;
+    saveHoldings();
+    renderLedger();
+  } else if(btn.dataset.action === 'refresh'){
+    await ensureExchangeRate();
+    await refreshHolding(idx);
+  } else if(btn.dataset.action === 'edit'){
+    editingIdx = idx;
+    renderLedger();
+  } else if(btn.dataset.action === 'cancel'){
+    editingIdx = null;
+    renderLedger();
+  } else if(btn.dataset.action === 'save'){
+    const newAvgPrice = parseFloat(document.getElementById(`editAvgPrice-${idx}`).value);
+    const newCurrency = document.getElementById(`editAvgCurrency-${idx}`).value;
+    const newQty = parseFloat(document.getElementById(`editQty-${idx}`).value);
+    if(isNaN(newAvgPrice) || newAvgPrice <= 0 || isNaN(newQty) || newQty <= 0){
+      alert('평단가와 수량을 올바르게 입력해 주세요.');
+      return;
+    }
+    holdings[idx].avgPrice = newAvgPrice;
+    holdings[idx].avgPriceCurrency = newCurrency;
+    holdings[idx].qty = newQty;
+    editingIdx = null;
+    saveHoldings();
+    renderLedger();
+  }
+});
+
+document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+
+document.getElementById('calcPrincipal').addEventListener('input', (e) => {
+  e.target.dataset.userEdited = '1';
+});
+
+function runCompoundCalc(){
+  const principal = parseFloat(document.getElementById('calcPrincipal').value) || 0;
+  const years = parseInt(document.getElementById('calcYears').value, 10) || 0;
+  const rate = parseFloat(document.getElementById('calcRate').value) || 0;
+
+  const yearly = [];
+  for(let y=0; y<=years; y++){
+    yearly.push(principal * Math.pow(1 + rate/100, y));
+  }
+  const future = yearly[yearly.length-1] ?? principal;
+  const gain = future - principal;
+  const gainPct = principal > 0 ? (gain/principal)*100 : 0;
+
+  document.getElementById('calcResultValue').innerHTML = fmtInt(future) + '<span class="unit">원</span>';
+  document.getElementById('calcResultGain').textContent =
+    `원금 대비 ${gain>=0?'+':''}${fmtInt(gain)}원 (${gain>=0?'+':''}${gainPct.toFixed(2)}%)`;
+
+  const ctx = document.getElementById('growthChart').getContext('2d');
+  const labels = yearly.map((_, y) => y + '년');
+  if(growthChart) growthChart.destroy();
+  growthChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '예상 자산',
+        data: yearly,
+        borderColor: '#7A2331',
+        backgroundColor: 'rgba(122,35,49,0.08)',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.15
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display:false } },
+      scales: {
+        y: { ticks: { callback: (v) => (v/100000000 >= 1 ? (v/100000000).toFixed(1)+'억' : (v/10000).toFixed(0)+'만') } },
+        x: { grid: { display:false } }
+      }
+    }
+  });
+}
+document.getElementById('calcBtn').addEventListener('click', runCompoundCalc);
+
+// 초기화
+loadHoldings();
+renderLedger();
+if(holdings.length > 0){ refreshAll(); }
+runCompoundCalc();
+
+// 'N분 전 가격' 표시가 실시간으로 갱신되도록 주기적으로 다시 그림 (네트워크 요청 없음)
+setInterval(renderLedger, 30000);
+</script>
+</body>
+</html>
