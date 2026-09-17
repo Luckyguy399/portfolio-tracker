@@ -390,15 +390,18 @@ async function fetchWithTimeout(url, ms){
   }
 }
 
-async function fetchJson(symbol){
+async function fetchJson(symbol, rotate){
   const target = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d&includePrePost=true&_=${Date.now()}`;
-  const attempts = [
-    target,
+  const proxies = [
     `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
     `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}&_=${Date.now()}`,
     `https://corsproxy.io/?url=${encodeURIComponent(target)}&_=${Date.now()}`,
     `https://thingproxy.freeboard.io/fetch/${target}`
   ];
+  // 종목마다 시작 프록시를 다르게 돌려서, 여러 종목을 동시에 새로고침해도 특정 프록시 하나에 요청이 몰리지 않게 한다
+  const offset = ((rotate || 0) % proxies.length + proxies.length) % proxies.length;
+  const rotatedProxies = proxies.slice(offset).concat(proxies.slice(0, offset));
+  const attempts = [target, ...rotatedProxies];
   let lastErr = null;
   for(const url of attempts){
     try{
@@ -413,8 +416,8 @@ async function fetchJson(symbol){
   throw lastErr || new Error('조회 실패');
 }
 
-async function fetchQuote(symbol){
-  const result = await fetchJson(symbol);
+async function fetchQuote(symbol, rotate){
+  const result = await fetchJson(symbol, rotate);
   const meta = result.meta;
   const timestamps = result.timestamp || [];
   const closes = (result.indicators && result.indicators.quote && result.indicators.quote[0] && result.indicators.quote[0].close) || [];
@@ -580,7 +583,7 @@ async function refreshHolding(idx){
   let lastErr = null;
   for(let attempt = 0; attempt < 2; attempt++){
     try{
-      const q = await fetchQuote(h.ticker);
+      const q = await fetchQuote(h.ticker, idx + attempt);
       h.currentPrice = q.price;
       h.currency = q.currency;
       h.priceLabel = q.priceLabel;
@@ -592,7 +595,7 @@ async function refreshHolding(idx){
     }catch(e){
       lastErr = e;
       // 무료 프록시가 일시적으로 요청이 몰려 실패하는 경우가 많아, 잠시 쉬었다가 한 번 더 시도
-      if(attempt === 0) await new Promise(r => setTimeout(r, 1500));
+      if(attempt === 0) await new Promise(r => setTimeout(r, 2200));
     }
   }
   if(lastErr){
@@ -612,7 +615,7 @@ async function refreshAll(){
     await refreshHolding(i);
     // 여러 종목을 한꺼번에 요청하면 무료 프록시가 과부하로 실패하는 경우가 많아 종목 사이에 약간의 간격을 둔다
     if(i < holdings.length - 1){
-      await new Promise(r => setTimeout(r, 900));
+      await new Promise(r => setTimeout(r, 1800));
     }
   }
   document.getElementById('refreshBtn').disabled = false;
