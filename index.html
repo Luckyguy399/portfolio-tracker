@@ -380,50 +380,14 @@ function fmtPct(n){
   return s + n.toFixed(2) + '%';
 }
 
-async function fetchWithTimeout(url, ms){
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  try{
-    return await fetch(url, { cache: 'no-store', signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
-async function fetchJson(symbol, rotate){
-  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d&includePrePost=true&_=${Date.now()}`;
-  const proxies = [
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}&_=${Date.now()}`,
-    `https://corsproxy.io/?url=${encodeURIComponent(target)}&_=${Date.now()}`,
-    `https://thingproxy.freeboard.io/fetch/${target}`
-  ];
-  // 종목마다 시작 프록시를 다르게 돌려서, 여러 종목을 동시에 새로고침해도 특정 프록시 하나에 요청이 몰리지 않게 한다
-  const offset = ((rotate || 0) % proxies.length + proxies.length) % proxies.length;
-  const rotatedProxies = proxies.slice(offset).concat(proxies.slice(0, offset));
-  const attempts = [target, ...rotatedProxies];
-  let lastErr = null;
-  for(const url of attempts){
-    try{
-      const res = await fetchWithTimeout(url, 7000);
-      if(!res.ok){ lastErr = new Error('HTTP '+res.status); continue; }
-      const data = await res.json();
-      const result = data && data.chart && data.chart.result && data.chart.result[0];
-      if(!result || !result.meta) { lastErr = new Error('no data'); continue; }
-      return result; // meta + timestamp + indicators 전체를 반환
-    }catch(e){ lastErr = e; continue; }
-  }
-  throw lastErr || new Error('조회 실패');
-}
 
-async function fetchQuote(symbol, rotate){
-  const result = await fetchJson(symbol, rotate);
+function extractYahooQuote(result){
   const meta = result.meta;
   const timestamps = result.timestamp || [];
   const closes = (result.indicators && result.indicators.quote && result.indicators.quote[0] && result.indicators.quote[0].close) || [];
 
   // 1) 분봉(1분 간격) 데이터 중 실제로 체결된 마지막 값을 "지금 시점" 가격으로 사용
-  //    (야후 meta 필드는 시간외/장전가를 따로 안 주는 경우가 많아, 실제 체결 캔들에서 직접 뽑는다)
   let price = null;
   let time = 0;
   for(let i = closes.length - 1; i >= 0; i--){
@@ -450,10 +414,79 @@ async function fetchQuote(symbol, rotate){
   return { price, currency, priceLabel: label, priceTime: time };
 }
 
+function parseStooqCsv(text, currency){
+  const lines = text.trim().split('\n');
+  if(lines.length < 2) throw new Error('no data');
+  const fields = lines[1].split(',');
+  const close = parseFloat(fields[6]);
+  if(!isFinite(close)) throw new Error('no data');
+  return { price: close, currency, priceLabel: '지연', priceTime: Math.floor(Date.now()/1000) };
+}
+
+async function fetchQuote(symbol, rotate){
+  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d&includePrePost=true&_=${Date.now()}`;
+  const proxies = [
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}&_=${Date.now()}`,
+    `https://corsproxy.io/?url=${encodeURIComponent(target)}&_=${Date.now()}`,
+    `https://thingproxy.freeboard.io/fetch/${target}`
+  ];
+  // 종목마다 시작 프록시를 다르게 돌려서, 여러 종목을 동시에 새로고침해도 특정 프록시 하나에 요청이 몰리지 않게 한다
+  const offset = ((rotate || 0) % proxies.length + proxies.length) % proxies.length;
+  const rotatedProxies = proxies.slice(offset).concat(proxies.slice(0, offset));
+  const yahooUrls = [target, ...rotatedProxies];
+
+  const controllers = [];
+  const tasks = yahooUrls.map((url) => {
+    const controller = new AbortController();
+    controllers.push(controller);
+    return (async () => {
+      const timer = setTimeout(() => controller.abort(), 8000);
+      try{
+        const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const data = await res.json();
+        const result = data && data.chart && data.chart.result && data.chart.result[0];
+        if(!result || !result.meta) throw new Error('no data');
+        return extractYahooQuote(result);
+      } finally {
+        clearTimeout(timer);
+      }
+    })();
+  });
+
+  // 야후 쪽이 특정 종목만 계속 막히는 경우를 대비해, 한국 종목이 아니면 다른 업체(stooq)도 함께 경쟁시킨다
+  if(!/\.(KS|KQ)$/i.test(symbol)){
+    const stooqTarget = `https://stooq.com/q/l/?s=${encodeURIComponent(symbol.toLowerCase())}.us&f=sd2t2ohlcv&h&e=csv`;
+    const stooqUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(stooqTarget)}&_=${Date.now()}`;
+    const controller = new AbortController();
+    controllers.push(controller);
+    tasks.push((async () => {
+      const timer = setTimeout(() => controller.abort(), 8000);
+      try{
+        const res = await fetch(stooqUrl, { cache: 'no-store', signal: controller.signal });
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const text = await res.text();
+        return parseStooqCsv(text, 'USD');
+      } finally {
+        clearTimeout(timer);
+      }
+    })());
+  }
+
+  try{
+    const q = await Promise.any(tasks);
+    controllers.forEach(c => c.abort()); // 이미 답을 받았으니 나머지 요청은 취소
+    return q;
+  }catch(aggErr){
+    throw new Error('조회 실패');
+  }
+}
+
 async function ensureExchangeRate(){
   try{
-    const result = await fetchJson('KRW=X');
-    if(result.meta.regularMarketPrice) usdKrwRate = result.meta.regularMarketPrice;
+    const q = await fetchQuote('KRW=X');
+    if(q.price) usdKrwRate = q.price;
   }catch(e){
     if(!usdKrwRate) usdKrwRate = 1400; // 폴백 근사치
   }
@@ -595,7 +628,7 @@ async function refreshHolding(idx){
     }catch(e){
       lastErr = e;
       // 무료 프록시가 일시적으로 요청이 몰려 실패하는 경우가 많아, 잠시 쉬었다가 한 번 더 시도
-      if(attempt === 0) await new Promise(r => setTimeout(r, 2200));
+      if(attempt === 0) await new Promise(r => setTimeout(r, 900));
     }
   }
   if(lastErr){
@@ -615,7 +648,7 @@ async function refreshAll(){
     await refreshHolding(i);
     // 여러 종목을 한꺼번에 요청하면 무료 프록시가 과부하로 실패하는 경우가 많아 종목 사이에 약간의 간격을 둔다
     if(i < holdings.length - 1){
-      await new Promise(r => setTimeout(r, 1800));
+      await new Promise(r => setTimeout(r, 500));
     }
   }
   document.getElementById('refreshBtn').disabled = false;
