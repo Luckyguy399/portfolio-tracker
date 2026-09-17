@@ -577,15 +577,25 @@ async function refreshHolding(idx){
   const hadPrice = h.currentPrice !== null && h.currentPrice !== undefined;
   h.status = 'loading';
   renderLedger();
-  try{
-    const q = await fetchQuote(h.ticker);
-    h.currentPrice = q.price;
-    h.currency = q.currency;
-    h.priceLabel = q.priceLabel;
-    h.status = 'ok';
-    h.lastSuccessTime = Date.now();
-    h.updatedAt = new Date().toISOString();
-  }catch(e){
+  let lastErr = null;
+  for(let attempt = 0; attempt < 2; attempt++){
+    try{
+      const q = await fetchQuote(h.ticker);
+      h.currentPrice = q.price;
+      h.currency = q.currency;
+      h.priceLabel = q.priceLabel;
+      h.status = 'ok';
+      h.lastSuccessTime = Date.now();
+      h.updatedAt = new Date().toISOString();
+      lastErr = null;
+      break;
+    }catch(e){
+      lastErr = e;
+      // 무료 프록시가 일시적으로 요청이 몰려 실패하는 경우가 많아, 잠시 쉬었다가 한 번 더 시도
+      if(attempt === 0) await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+  if(lastErr){
     // 조회 실패해도 이전에 성공적으로 가져온 가격이 있으면 그대로 보여준다 ('N분 전 가격')
     h.status = hadPrice ? 'stale' : 'error';
   }
@@ -600,6 +610,10 @@ async function refreshAll(){
   await ensureExchangeRate();
   for(let i=0;i<holdings.length;i++){
     await refreshHolding(i);
+    // 여러 종목을 한꺼번에 요청하면 무료 프록시가 과부하로 실패하는 경우가 많아 종목 사이에 약간의 간격을 둔다
+    if(i < holdings.length - 1){
+      await new Promise(r => setTimeout(r, 900));
+    }
   }
   document.getElementById('refreshBtn').disabled = false;
 }
